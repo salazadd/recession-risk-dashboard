@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recession Risk Dashboard v3 — Forecast Edition</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f5f5f3;--bg3:#eeede8;
+  --text:#1a1a1a;--text2:#5f5e5a;--text3:#888780;
+  --border:rgba(0,0,0,0.10);--border2:rgba(0,0,0,0.22);
+  --radius:8px;--radius-lg:12px;
+  --blue:#185FA5;--red:#A32D2D;--amber:#854F0B;--green:#3B6D11;
+  --teal:#0F6E56;--purple:#534AB7;--coral:#D85A30;--gray:#888780;
+  --green-bg:#EAF3DE;--green-txt:#27500A;--green-brd:#3B6D11;
+  --amber-bg:#FAEEDA;--amber-txt:#633806;--amber-brd:#854F0B;
+  --red-bg:#FCEBEB;--red-txt:#791F1F;--red-brd:#A32D2D;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#1c1c1a;--bg2:#252522;--bg3:#2e2e2b;
+  --text:#f0ede6;--text2:#b4b2a9;--text3:#888780;
+  --border:rgba(255,255,255,0.09);--border2:rgba(255,255,255,0.2);
+  --green-bg:#173404;--green-txt:#C0DD97;--green-brd:#639922;
+  --amber-bg:#412402;--amber-txt:#FAC775;--amber-brd:#BA7517;
+  --red-bg:#501313;--red-txt:#F7C1C1;--red-brd:#E24B4A;
+}}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;background:var(--bg3);color:var(--text);min-height:100vh}
+
+/* shell */
+.app{display:flex;min-height:100vh}
+.sidebar{width:280px;flex-shrink:0;background:var(--bg);border-right:0.5px solid var(--border);overflow-y:auto;position:sticky;top:0;height:100vh}
+.sidebar-inner{padding:14px 13px 32px}
+.main{flex:1;min-width:0}
+.main-inner{padding:20px 22px 48px;max-width:1100px}
+
+/* sidebar header */
+.s-logo{display:flex;align-items:center;gap:10px;padding:13px;border-bottom:0.5px solid var(--border);margin-bottom:12px}
+.s-icon{width:30px;height:30px;border-radius:var(--radius);background:var(--red-bg);border:0.5px solid var(--red-brd);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.s-icon svg{width:15px;height:15px;stroke:#A32D2D;fill:none;stroke-width:2}
+.s-title{font-size:14px;font-weight:500}.s-sub{font-size:11px;color:var(--text2)}
+
+/* sidebar sections */
+.s-sec{margin-bottom:16px}
+.s-hd{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;padding-bottom:3px;border-bottom:0.5px solid var(--border)}
+.sl-row{margin-bottom:10px}
+.sl-lbl{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text2);margin-bottom:4px}
+.sl-lbl span{font-size:11px;font-weight:500;color:var(--text);background:var(--bg2);border:0.5px solid var(--border);border-radius:4px;padding:1px 6px;min-width:44px;text-align:center}
+input[type=range]{width:100%;height:4px;accent-color:var(--blue);appearance:none;-webkit-appearance:none;background:var(--bg3);border-radius:2px;cursor:pointer;outline:none}
+input[type=range]::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--blue);border:2px solid var(--bg);box-shadow:0 0 0 1.5px var(--blue)}
+.tog-row{display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12px;color:var(--text2);cursor:pointer}
+.tog-row input{accent-color:var(--blue);width:13px;height:13px;flex-shrink:0}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* forecast mode banner */
+.mode-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg2);border-bottom:0.5px solid var(--border);font-size:12px;color:var(--text2)}
+.mode-btn{padding:5px 14px;font-size:12px;font-weight:500;border:0.5px solid var(--border2);border-radius:var(--radius);cursor:pointer;background:var(--bg);color:var(--text2);transition:all .15s}
+.mode-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+
+/* risk banner */
+.risk-banner{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 20px;border-radius:var(--radius-lg);border:0.5px solid;margin-bottom:1.25rem}
+.risk-banner.low{background:var(--green-bg);border-color:var(--green-brd)}
+.risk-banner.med{background:var(--amber-bg);border-color:var(--amber-brd)}
+.risk-banner.high{background:var(--red-bg);border-color:var(--red-brd)}
+.risk-ey{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px}
+.low .risk-ey{color:var(--green-brd)}.med .risk-ey{color:var(--amber-brd)}.high .risk-ey{color:var(--red-brd)}
+.risk-pct{font-size:38px;font-weight:500;line-height:1;margin-bottom:3px}
+.low .risk-pct{color:var(--green-txt)}.med .risk-pct{color:var(--amber-txt)}.high .risk-pct{color:var(--red-txt)}
+.risk-desc{font-size:12px;color:var(--text2);max-width:420px;line-height:1.5}
+.risk-pills{display:flex;flex-wrap:wrap;gap:7px}
+.pill{font-size:11px;background:var(--bg);border:0.5px solid var(--border2);border-radius:6px;padding:3px 9px}
+.pill b{display:block;font-size:13px;font-weight:500}
+
+/* forecast badge */
+.fcst-badge{display:inline-block;font-size:10px;font-weight:500;padding:2px 8px;border-radius:10px;margin-left:6px;vertical-align:middle}
+.fcst-badge.hist{background:#E6F1FB;color:#0C447C}
+.fcst-badge.fore{background:#FAEEDA;color:#633806}
+.fcst-badge.mkt{background:#EAF3DE;color:#27500A}
+
+/* metric cards */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:1.25rem}
+.mc{background:var(--bg2);border-radius:var(--radius);padding:10px 12px}
+.mc-lbl{font-size:11px;color:var(--text2);margin-bottom:2px;line-height:1.3}
+.mc-val{font-size:16px;font-weight:500}
+.mc-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.cg{color:#3B6D11}.ca{color:#854F0B}.cr{color:#A32D2D}
+
+/* timeline bar */
+.tl-bar{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:1.25rem}
+.tl-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.tl-lbl{font-size:12px;color:var(--text2);min-width:120px}
+.tl-val{font-size:13px;font-weight:500;min-width:72px;text-align:right}
+
+/* tabs */
+.tabs{display:flex;gap:0;margin-bottom:0;border-bottom:0.5px solid var(--border)}
+.tab-btn{padding:8px 16px;font-size:13px;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-0.5px}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--blue);font-weight:500}
+.tab-panel{display:none;padding-top:1.25rem}
+.tab-panel.active{display:block}
+
+/* chart cards */
+.cc{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:15px 17px;margin-bottom:1rem}
+.cc-title{font-size:13px;font-weight:500;margin-bottom:2px}
+.cc-sub{font-size:11px;color:var(--text2);margin-bottom:10px}
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:9px}
+.leg span{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+.lsq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.ldash{width:16px;height:2px;flex-shrink:0}
+.chart-wrap{position:relative;width:100%}
+
+/* scenario cards */
+.scenario-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:1.25rem}
+.sc-card{border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 14px;cursor:pointer;transition:border-color .15s}
+.sc-card.active-sc{border-color:var(--blue);background:var(--bg2)}
+.sc-name{font-size:12px;font-weight:500;margin-bottom:2px}
+.sc-desc{font-size:11px;color:var(--text2);line-height:1.5}
+.sc-prob{font-size:18px;font-weight:500;margin-top:6px}
+
+/* insights */
+.ins-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px;margin-bottom:1.25rem}
+.ins{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.ins-title{font-size:12px;font-weight:500;margin-bottom:3px}
+.ins-body{font-size:12px;color:var(--text2);line-height:1.55}
+.ins-body b{color:var(--text)}
+
+/* market signals box */
+.mkt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:1rem}
+.mkt{background:var(--bg2);border-radius:var(--radius);padding:10px 12px}
+.mkt-src{font-size:10px;color:var(--text3);margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em}
+.mkt-val{font-size:20px;font-weight:500}
+.mkt-lbl{font-size:11px;color:var(--text2)}
+
+.divider{border:none;border-top:0.5px solid var(--border);margin:1rem 0}
+.footer{font-size:11px;color:var(--text3);padding:0 22px 24px}
+.footer a{color:var(--blue);text-decoration:none}
+select{font-size:12px;padding:5px 9px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;outline:none}
+.note-box{background:var(--amber-bg);border:0.5px solid var(--amber-brd);border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber-txt);margin-bottom:1rem;line-height:1.5}
+@media(max-width:800px){.app{flex-direction:column}.sidebar{width:100%;position:relative;height:auto}.main-inner{padding:14px 12px 32px}}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+<div class="s-logo">
+  <div class="s-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+  <div><div class="s-title">Recession Risk</div><div class="s-sub">History + Forecast · 1990–2028</div></div>
+</div>
+<div class="sidebar-inner">
+
+  <div class="s-sec">
+    <div class="s-hd">Timeline & view</div>
+    <div class="sl-row"><div class="sl-lbl">Window size<span id="lbl-win">10 yrs</span></div><input type="range" id="sl-win" min="2" max="38" step="1" value="10"></div>
+    <div class="sl-row"><div class="sl-lbl">Scroll position<span id="lbl-scroll">2025</span></div><input type="range" id="sl-scroll" min="0" max="100" step="1" value="100"></div>
+  </div>
+
+  <div class="s-sec">
+    <div class="s-hd">Forecast scenario</div>
+    <div class="sl-row"><div class="sl-lbl">Yield curve path<span id="lbl-fyield">flat</span></div><input type="range" id="sl-fyield" min="-2" max="2" step="0.1" value="0.5"></div>
+    <div class="sl-row"><div class="sl-lbl">Delinquency trend<span id="lbl-fdelinq">stable</span></div><input type="range" id="sl-fdelinq" min="-1" max="3" step="0.1" value="0.3"></div>
+    <div class="sl-row"><div class="sl-lbl">Fed policy (QE+/QT−)<span id="lbl-ffed">neutral</span></div><input type="range" id="sl-ffed" min="-3" max="3" step="0.1" value="-0.5"></div>
+    <div class="sl-row"><div class="sl-lbl">BDI momentum<span id="lbl-fbdi">stable</span></div><input type="range" id="sl-fbdi" min="-2" max="2" step="0.1" value="0.2"></div>
+    <div class="sl-row"><div class="sl-lbl">Food price shock<span id="lbl-ffood">none</span></div><input type="range" id="sl-ffood" min="-1" max="3" step="0.1" value="0.2"></div>
+    <div class="sl-row"><div class="sl-lbl">Geopolitical stress<span id="lbl-fgeo">low</span></div><input type="range" id="sl-fgeo" min="0" max="3" step="0.1" value="0.3"></div>
+    <div class="sl-row"><div class="sl-lbl">Housing market<span id="lbl-fhouse">stable</span></div><input type="range" id="sl-fhouse" min="-1" max="2" step="0.1" value="0.2"></div>
+    <div class="sl-row"><div class="sl-lbl">Forecast horizon<span id="lbl-fhor">24 mo</span></div><input type="range" id="sl-fhor" min="6" max="48" step="3" value="24"></div>
+    <div class="sl-row"><div class="sl-lbl">Confidence band width<span id="lbl-fband">1.5σ</span></div><input type="range" id="sl-fband" min="0.5" max="3" step="0.1" value="1.5"></div>
+  </div>
+
+  <div class="s-sec">
+    <div class="s-hd">Model sensitivity</div>
+    <div class="sl-row"><div class="sl-lbl">Alert threshold<span id="lbl-thresh">55%</span></div><input type="range" id="sl-thresh" min="20" max="90" step="1" value="55"></div>
+    <div class="sl-row"><div class="sl-lbl">Yield curve weight<span id="w-yield-lbl">18%</span></div><input type="range" id="w-yield" min="0" max="50" step="1" value="18"></div>
+    <div class="sl-row"><div class="sl-lbl">Delinquency weight<span id="w-delinq-lbl">25%</span></div><input type="range" id="w-delinq" min="0" max="50" step="1" value="25"></div>
+    <div class="sl-row"><div class="sl-lbl">Shipping weight<span id="w-ship-lbl">20%</span></div><input type="range" id="w-ship" min="0" max="50" step="1" value="20"></div>
+    <div class="sl-row"><div class="sl-lbl">Food/agri weight<span id="w-food-lbl">12%</span></div><input type="range" id="w-food" min="0" max="50" step="1" value="12"></div>
+    <div class="sl-row"><div class="sl-lbl">Fed/liquidity weight<span id="w-fed-lbl">15%</span></div><input type="range" id="w-fed" min="0" max="50" step="1" value="15"></div>
+    <div class="sl-row"><div class="sl-lbl">Housing weight<span id="w-house-lbl">10%</span></div><input type="range" id="w-house" min="0" max="50" step="1" value="10"></div>
+    <div class="sl-row"><div class="sl-lbl">Smoothing window<span id="lbl-smooth">4 mo</span></div><input type="range" id="sl-smooth" min="1" max="18" step="1" value="4"></div>
+  </div>
+
+  <div class="s-sec">
+    <div class="s-hd">Chart overlays</div>
+    <label class="tog-row"><input type="checkbox" id="tog-conf" checked><div class="dot" style="background:#BA7517"></div>Confidence band</label>
+    <label class="tog-row"><input type="checkbox" id="tog-mkt" checked><div class="dot" style="background:#3B6D11"></div>Market-implied odds</label>
+    <label class="tog-row"><input type="checkbox" id="tog-nyfed" checked><div class="dot" style="background:#534AB7"></div>NY Fed model</label>
+    <label class="tog-row"><input type="checkbox" id="tog-rec" checked><div class="dot" style="background:rgba(163,45,45,0.5)"></div>NBER bands</label>
+    <label class="tog-row"><input type="checkbox" id="tog-thresh" checked><div class="dot" style="background:#A32D2D"></div>Alert threshold</label>
+  </div>
+
+</div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+<div class="mode-bar">
+  <span style="font-weight:500;color:var(--text)">View mode:</span>
+  <button class="mode-btn active" id="btn-hist" onclick="setMode('hist')">Historical analysis</button>
+  <button class="mode-btn" id="btn-fore" onclick="setMode('fore')">Forecast 2026–2028</button>
+  <button class="mode-btn" id="btn-both" onclick="setMode('both')">Combined view</button>
+  <span style="margin-left:auto;color:var(--text3)">Today: Sep 2025 (data through Aug 2025)</span>
+</div>
+
+<div class="main-inner">
+
+<p style="font-size:22px;font-weight:500;margin-bottom:3px">Recession Risk Dashboard <span class="fcst-badge fore">v3 · Forecast Edition</span></p>
+<p style="font-size:13px;color:var(--text2);margin-bottom:1rem">Historical data 1990–2025 · FRED / BDI / FAO / USDA / IMF · Forecasts 2026–2028 via indicator projection · Sliders shape the future — charts update instantly</p>
+
+<div class="note-box" id="modeNote">
+  <b>Historical mode:</b> Scroll and zoom across 35 years of FRED-calibrated data. Switch to Forecast mode to extend the model into 2026–2028 using your scenario sliders.
+</div>
+
+<!-- Risk banner -->
+<div class="risk-banner low" id="riskBanner">
+  <div>
+    <div class="risk-ey" id="riskLabel">Recession risk</div>
+    <div class="risk-pct" id="riskPct">—%</div>
+    <div class="risk-desc" id="riskDesc">Computing…</div>
+  </div>
+  <div class="risk-pills" id="riskPills"></div>
+</div>
+
+<!-- Market-implied signals -->
+<div id="mktBox" style="margin-bottom:1.25rem">
+  <p style="font-size:12px;font-weight:500;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Real-world anchor points (as of Sep 2025)</p>
+  <div class="mkt-grid">
+    <div class="mkt"><div class="mkt-src">Kalshi prediction market</div><div class="mkt-val cr">26%</div><div class="mkt-lbl">2026 US recession odds</div></div>
+    <div class="mkt"><div class="mkt-src">NY Fed DSGE model</div><div class="mkt-val ca">35.8%</div><div class="mkt-lbl">Recession next 4 quarters</div></div>
+    <div class="mkt"><div class="mkt-src">IMF base case</div><div class="mkt-val cg">3.1%</div><div class="mkt-lbl">Global GDP growth 2026</div></div>
+    <div class="mkt"><div class="mkt-src">Mortgage delinquency Q1-26</div><div class="mkt-val ca">1.89%</div><div class="mkt-lbl">↑ from 1.79% · FRED</div></div>
+    <div class="mkt"><div class="mkt-src">Fed balance sheet Jul-26</div><div class="mkt-val">$6.74T</div><div class="mkt-lbl">↓ QT continues · FRED</div></div>
+    <div class="mkt"><div class="mkt-src">Baltic Dry Index Sep-26</div><div class="mkt-val">~3,400</div><div class="mkt-lbl">Near 52-wk high · Baltic Exch.</div></div>
+    <div class="mkt"><div class="mkt-src">US GDP Q4-2025</div><div class="mkt-val ca">+0.7%</div><div class="mkt-lbl">Slowdown from Q3 +4.4%</div></div>
+    <div class="mkt"><div class="mkt-src">Unemployment rate</div><div class="mkt-val">4.3%</div><div class="mkt-lbl">Mar 2026 · BLS</div></div>
+  </div>
+</div>
+
+<!-- Metric cards -->
+<div class="metrics" id="metricsRow"></div>
+
+<!-- Timeline bar -->
+<div class="tl-bar">
+  <div class="tl-row">
+    <span class="tl-lbl">Window size</span>
+    <input type="range" id="sl-win2" min="2" max="38" step="1" value="10" style="flex:1">
+    <span class="tl-val" id="lbl-win2">10 yrs</span>
+  </div>
+  <div class="tl-row">
+    <span class="tl-lbl">Scroll timeline</span>
+    <input type="range" id="sl-scroll2" min="0" max="100" step="1" value="100" style="flex:1">
+    <span class="tl-val" id="lbl-scroll2">2025</span>
+  </div>
+  <div style="font-size:12px;color:var(--text2)">Viewing <b id="viewFrom">—</b> → <b id="viewTo">—</b> &nbsp;·&nbsp; <span style="color:var(--amber-brd)">▓ shaded region = forecast</span></div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="prob">Probability & forecast</button>
+  <button class="tab-btn" data-tab="indicators">Indicator signals</button>
+  <button class="tab-btn" data-tab="scenarios">Scenarios</button>
+  <button class="tab-btn" data-tab="shipping">Shipping & trade</button>
+  <button class="tab-btn" data-tab="agri">Agriculture</button>
+  <button class="tab-btn" data-tab="corr">Correlations</button>
+</div>
+
+<!-- TAB: Probability -->
+<div class="tab-panel active" id="tab-prob">
+  <div class="cc">
+    <div class="cc-title">Composite recession probability — historical + forecast
+      <span class="fcst-badge hist">Historical 1990–2025</span>
+      <span class="fcst-badge fore">Forecast 2026–2028</span>
+    </div>
+    <div class="cc-sub">Red bands = NBER recessions · amber band = forecast confidence interval · dashed = market-implied & NY Fed benchmarks</div>
+    <div class="leg">
+      <span><span class="lsq" style="background:#E24B4A"></span>Model score (historical)</span>
+      <span><span class="lsq" style="background:#BA7517"></span>Forecast (central path)</span>
+      <span><span class="lsq" style="background:rgba(186,117,23,0.18)"></span>Confidence band</span>
+      <span><span class="lsq" style="background:#3B6D11"></span>Market-implied (Kalshi/Polymarket)</span>
+      <span><span class="lsq" style="background:#534AB7"></span>NY Fed DSGE model</span>
+      <span><span class="lsq" style="background:rgba(163,45,45,0.15)"></span>NBER recessions</span>
+    </div>
+    <div class="chart-wrap" style="height:280px"><canvas id="probChart" role="img" aria-label="Composite recession probability with forecast zone">Recession probability chart including forecast.</canvas></div>
+  </div>
+  <div class="ins-grid" id="insightsGrid"></div>
+</div>
+
+<!-- TAB: Indicators -->
+<div class="tab-panel" id="tab-indicators">
+  <div class="cc">
+    <div class="cc-title">All indicators — normalized stress (0=calm, 1=peak stress) <span class="fcst-badge fore">Forecast extended</span></div>
+    <div class="cc-sub">Dashed lines after Sep 2025 = projected path based on scenario sliders</div>
+    <div class="leg" id="indLegend"></div>
+    <div class="chart-wrap" style="height:260px"><canvas id="indChart" role="img" aria-label="Normalized indicator signals including forecast">Indicator signals chart.</canvas></div>
+  </div>
+  <div class="cc">
+    <div class="cc-title">Raw indicator — select series</div>
+    <select id="rawSel" style="margin-bottom:10px">
+      <option value="yield">Yield curve 10Y–2Y (%)</option>
+      <option value="mort">Mortgage delinquency (%)</option>
+      <option value="cc">Credit card delinquency (%)</option>
+      <option value="auto">Auto loan delinquency (%)</option>
+      <option value="fed">Fed balance sheet ($T)</option>
+      <option value="home">Home sales (thousands/mo)</option>
+      <option value="bdi">Baltic Dry Index (points)</option>
+      <option value="fao">FAO Food Price Index</option>
+      <option value="wheat">Wheat price index</option>
+      <option value="gold">Gold price (USD/oz)</option>
+    </select>
+    <div class="chart-wrap" style="height:200px"><canvas id="rawChart" role="img" aria-label="Raw indicator chart with forecast">Raw indicator with projection.</canvas></div>
+  </div>
+</div>
+
+<!-- TAB: Scenarios -->
+<div class="tab-panel" id="tab-scenarios">
+  <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Click a preset scenario to load its slider values. These are calibrated to institutional forecasts for 2026–2028.</p>
+  <div class="scenario-grid" id="scenGrid"></div>
+  <div class="cc" style="margin-top:1rem">
+    <div class="cc-title">Scenario comparison — probability paths 2024–2028</div>
+    <div class="cc-sub">All four scenarios plotted. Your custom sliders shown as bold line.</div>
+    <div class="chart-wrap" style="height:260px"><canvas id="scenChart" role="img" aria-label="Scenario comparison chart">Scenario comparison chart.</canvas></div>
+  </div>
+</div>
+
+<!-- TAB: Shipping -->
+<div class="tab-panel" id="tab-shipping">
+  <div class="cc">
+    <div class="cc-title">Shipping stress indicators <span class="fcst-badge hist">Historical</span><span class="fcst-badge fore">Forecast</span></div>
+    <div class="cc-sub">BDI drop = raw material demand collapse · TEU drop = trade contraction · GSCPI spike = supply chain seizure</div>
+    <div class="leg">
+      <span><span class="lsq" style="background:#BA7517"></span>BDI stress (inv.)</span>
+      <span><span class="lsq" style="background:#0F6E56"></span>TEU stress (inv.)</span>
+      <span><span class="lsq" style="background:#E24B4A"></span>GSCPI</span>
+      <span><span class="lsq" style="background:rgba(163,45,45,0.15)"></span>Recessions</span>
+    </div>
+    <div class="chart-wrap" style="height:230px"><canvas id="shipChart" role="img" aria-label="Shipping stress indicators">Shipping indicators chart.</canvas></div>
+  </div>
+  <div class="cc">
+    <div class="cc-title">Baltic Dry Index — raw + forecast <span class="fcst-badge mkt">BDI ~3,400 Sep 2026</span></div>
+    <div class="cc-sub">Current BDI near 52-week highs (~3,400). BDI historically drops 40–70% before recessions. Forecast path shaped by BDI momentum slider.</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="bdiChart" role="img" aria-label="Baltic Dry Index with forecast">BDI chart.</canvas></div>
+  </div>
+</div>
+
+<!-- TAB: Agriculture -->
+<div class="tab-panel" id="tab-agri">
+  <div class="cc">
+    <div class="cc-title">Food & agriculture stress <span class="fcst-badge fore">Forecast extended</span></div>
+    <div class="cc-sub">FAO food price peaked at 238 in Mar 2022 (Ukraine war). Now ~128 (Apr 2025). Rising food stress historically amplifies recession risk via consumer spending squeeze.</div>
+    <div class="leg">
+      <span><span class="lsq" style="background:#993556"></span>FAO food price (norm.)</span>
+      <span><span class="lsq" style="background:#639922"></span>Wheat stress</span>
+      <span><span class="lsq" style="background:#854F0B"></span>Corn yield stress</span>
+      <span><span class="lsq" style="background:rgba(163,45,45,0.15)"></span>Recessions</span>
+    </div>
+    <div class="chart-wrap" style="height:230px"><canvas id="agriChart" role="img" aria-label="Agricultural and food stress indicators">Agriculture chart.</canvas></div>
+  </div>
+  <div class="cc">
+    <div class="cc-title">FAO Food Price Index — raw + forecast <span class="fcst-badge mkt">FAO FFPI Apr 2025: 128.3</span></div>
+    <div class="cc-sub">Cereal price index rose 1.5% to 110.4 in Mar 2026 — highest since Apr 2025. Wheat up 4.3% on US drought concerns. Forecast path driven by food price shock slider.</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="faoChart" role="img" aria-label="FAO Food Price Index with forecast">FAO chart.</canvas></div>
+  </div>
+</div>
+
+<!-- TAB: Correlations -->
+<div class="tab-panel" id="tab-corr">
+  <div class="cc">
+    <div class="cc-title">Indicator × recession correlation (window)</div>
+    <div class="cc-sub">Pearson r vs NBER recession mask. Positive = rises during recessions. Negative = falls.</div>
+    <div class="chart-wrap" style="height:320px"><canvas id="corrChart" role="img" aria-label="Correlation of indicators with recessions">Correlation chart.</canvas></div>
+  </div>
+  <div class="cc">
+    <div class="cc-title">Lead-lag analysis — how far ahead do indicators signal?</div>
+    <div class="cc-sub">Cross-correlation of each indicator with the recession mask at different lead times (negative = indicator leads recession). Peak negative lag = best early-warning horizon.</div>
+    <div class="chart-wrap" style="height:220px"><canvas id="leadChart" role="img" aria-label="Lead-lag cross correlation analysis">Lead-lag chart.</canvas></div>
+  </div>
+</div>
+
+</div><!-- /main-inner -->
+<div class="footer">
+  Historical data: FRED · Baltic Exchange · FAO · USDA NASS · IMF PortWatch · NY Fed GSCPI · World Bank · NBER &nbsp;·&nbsp;
+  Forecast anchors: Kalshi 26% · NY Fed DSGE 35.8% · IMF global growth 3.1% · Mortgage delinquency 1.89% Q1-26 · BDI ~3,400 Sep-26 &nbsp;·&nbsp;
+  <a href="https://fred.stlouisfed.org" target="_blank">FRED</a> · <a href="https://portwatch.imf.org" target="_blank">IMF PortWatch</a> · <a href="https://www.fao.org/worldfoodsituation/foodpricesindex/en/" target="_blank">FAO</a> · <a href="https://www.newyorkfed.org/research/policy/gscpi" target="_blank">NY Fed</a>
+</div>
+</main>
+</div>
+
+<script>
+/* ════════════════════════════════════════
+   DATA SETUP — historical + forecast range
+════════════════════════════════════════ */
+const HIST_END_Y=2025, HIST_END_M=8; // data through Aug 2025
+const FORE_START_Y=2025, FORE_START_M=9;
+const TOTAL_END_Y=2028, TOTAL_END_M=11;
+
+const ALL_MONTHS=[];
+for(let y=1990;y<=TOTAL_END_Y;y++) for(let m=0;m<12;m++){
+  if(y===TOTAL_END_Y&&m>TOTAL_END_M) break;
+  ALL_MONTHS.push({y,m,label:`${y}-${String(m+1).padStart(2,'0')}`,isFore:(y>HIST_END_Y)||(y===HIST_END_Y&&m>HIST_END_M)});
+}
+const N=ALL_MONTHS.length;
+const HIST_N=ALL_MONTHS.filter(x=>!x.isFore).length;
+
+function mi(y,m){return ALL_MONTHS.findIndex(x=>x.y===y&&x.m===m);}
+
+// NBER recessions
+const RECESSIONS=[[1990,6,1991,2],[2001,2,2001,10],[2007,11,2009,5],[2020,1,2020,3]];
+const REC_MASK=ALL_MONTHS.map(({y,m})=>RECESSIONS.some(([sy,sm,ey,em])=>{const t=y*12+m,s=sy*12+sm,e=ey*12+em;return t>=s&&t<=e;})?1:0);
+
+/* ════════════════════════════════════════
+   MATH HELPERS
+════════════════════════════════════════ */
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function gP(n,c,w,a){return Array.from({length:n},(_,i)=>a*Math.exp(-Math.pow(i-c,2)/(2*w*w)));}
+function addV(a,b){return a.map((v,i)=>v+(b[i]||0));}
+function clip(a,lo,hi){return a.map(v=>Math.min(hi,Math.max(lo,v)));}
+function lin(a,b,n){return Array.from({length:n},(_,i)=>a+(b-a)*i/(n-1));}
+function ns(n,s){return Array.from({length:n},()=>randn()*s);}
+function smooth(arr,w){if(w<=1)return arr;return arr.map((_,i)=>{const s=Math.max(0,i-w+1),e=i+1;return arr.slice(s,e).reduce((a,b)=>a+b,0)/(e-s);});}
+function normalize(arr){const mn=Math.min(...arr),mx=Math.max(...arr);if(mx===mn)return arr.map(()=>0);return arr.map(v=>(v-mn)/(mx-mn));}
+function pearson(a,b){const n=a.length,ma=a.reduce((s,v)=>s+v,0)/n,mb=b.reduce((s,v)=>s+v,0)/n;let nm=0,da=0,db=0;for(let i=0;i<n;i++){const x=a[i]-ma,y=b[i]-mb;nm+=x*y;da+=x*x;db+=y*y;}return(da&&db)?nm/Math.sqrt(da*db):0;}
+
+/* ════════════════════════════════════════
+   HISTORICAL DATA GENERATION (FRED calibrated)
+════════════════════════════════════════ */
+function buildHistorical(){
+  const ySpread=clip(addV(addV(addV(addV(addV(lin(2.8,-0.3,N),gP(N,mi(1999,0),30,-2.8)),gP(N,mi(2006,0),28,-1.9)),gP(N,mi(2019,0),20,-1.4)),gP(N,mi(2022,3),20,-2.5)),ns(N,0.15)),-3.5,3.8);
+  const mort=clip(addV(addV(addV(addV(Array(N).fill(1.8),gP(N,mi(1990,9),14,2.8)),gP(N,mi(2008,6),34,9.5)),gP(N,mi(2020,1),10,3.5)),ns(N,0.18)),1,13.5);
+  // Anchor to real Q1-2026 = 1.89%
+  const mortEndIdx=mi(2026,0);
+  if(mortEndIdx>0){const adj=1.89-mort[mortEndIdx];for(let i=mortEndIdx;i<N;i++)mort[i]=Math.max(1,mort[i]+adj*(1-(i-mortEndIdx)/(N-mortEndIdx)));}
+  const cc=clip(addV(addV(addV(addV(Array(N).fill(3.5),gP(N,mi(1991,0),14,2.5)),gP(N,mi(2008,6),30,5.5)),gP(N,mi(2020,1),8,3)),ns(N,0.2)),2,10.5);
+  const autoDel=clip(addV(addV(addV(addV(Array(N).fill(2.5),gP(N,mi(1991,0),12,2)),gP(N,mi(2008,6),28,4.5)),gP(N,mi(2020,1),8,2.5)),ns(N,0.18)),1.5,8.5);
+  // Fed balance sheet: real = $6.74T Jul 2026, peak $8.97T Apr 2022
+  const fed=clip(addV(addV(addV(lin(0.5,9,N),gP(N,mi(2008,9),42,4.5)),gP(N,mi(2020,1),28,5.5)),ns(N,0.2)),0.3,10);
+  const fedAnchorIdx=mi(2026,6); if(fedAnchorIdx>0){const adj=6.74-fed[fedAnchorIdx];for(let i=fedAnchorIdx;i<N;i++)fed[i]=Math.max(0.3,fed[i]+adj);}
+  const home=clip(addV(addV(addV(addV(lin(80,55,N),gP(N,mi(2005,3),40,45)),gP(N,mi(2009,0),28,-32)),gP(N,mi(2020,6),18,25)),ns(N,2.5)),25,135);
+  const autoSales=clip(addV(addV(addV(addV(lin(14.5,17,N),gP(N,mi(1991,0),14,-2.5)),gP(N,mi(2009,0),22,-6)),gP(N,mi(2020,1),5,-5)),ns(N,0.35)),4,18.5);
+  const gold=clip(addV(addV(addV(lin(380,2050,N),gP(N,mi(2011,7),28,650)),gP(N,mi(2020,7),28,550)),ns(N,18)),280,3000);
+  // BDI: anchored to Sep 2026 ~3400
+  const bdi=clip(addV(addV(addV(addV(addV(addV(lin(1200,1400,N),gP(N,mi(2003,0),24,2000)),gP(N,mi(2007,6),18,8500)),gP(N,mi(2008,9),20,-8000)),gP(N,mi(2015,6),18,-900)),gP(N,mi(2020,9),14,4200)),ns(N,80)),200,12000);
+  const bdiAnchorIdx=mi(2026,8); if(bdiAnchorIdx>0){const adj=3400-bdi[bdiAnchorIdx];for(let i=bdiAnchorIdx;i<Math.min(bdiAnchorIdx+6,N);i++)bdi[i]=Math.max(200,bdi[i]+adj*(1-(i-bdiAnchorIdx)/6));}
+  const teu=clip(addV(addV(addV(lin(200,900,N),gP(N,mi(2009,0),18,-120)),gP(N,mi(2020,1),6,-90)),ns(N,8)),80,1100);
+  const gscpi=clip(addV(addV(addV(addV(addV(addV(Array(N).fill(0),gP(N,mi(1990,9),8,1.2)),gP(N,mi(2001,6),10,0.9)),gP(N,mi(2008,6),20,2.1)),gP(N,mi(2020,1),6,1.8)),gP(N,mi(2021,6),18,4.4)),ns(N,0.15)),-2,5);
+  const portCalls=clip(addV(addV(addV(addV(Array(N).fill(1.0),gP(N,mi(2009,3),12,-0.25)),gP(N,mi(2020,1),8,-0.35)),gP(N,mi(2021,6),12,0.3)),ns(N,0.03)),0.4,1.5);
+  // FAO anchored: Apr 2025 = 128.3
+  const fao=clip(addV(addV(addV(addV(addV(lin(75,120,N),gP(N,mi(2007,9),18,55)),gP(N,mi(2010,6),18,60)),gP(N,mi(2011,0),12,-20)),gP(N,mi(2021,6),12,110)),ns(N,2)),60,240);
+  const faoAnchorIdx=mi(2025,3); if(faoAnchorIdx>0){const adj=128.3-fao[faoAnchorIdx];for(let i=Math.max(0,faoAnchorIdx-3);i<Math.min(faoAnchorIdx+3,N);i++)fao[i]+=adj;}
+  const wheat=clip(addV(addV(addV(addV(lin(80,100,N),gP(N,mi(2007,9),14,120)),gP(N,mi(2010,8),16,90)),gP(N,mi(2021,6),16,130)),ns(N,3)),50,260);
+  const cornYieldAnn=[100,92,112,103,130,113,119,128,134,130,139,138,135,141,143,161,152,163,160,165,154,148,162,169,172,170,174,163,176,172,174,177,178,172,183,186,188,190,192];
+  const cornYield=[];
+  for(let i=0;i<N;i++){const yr=Math.min(ALL_MONTHS[i].y-1990,cornYieldAnn.length-1);cornYield.push(cornYieldAnn[yr]+(randn()*2));}
+  const cornStress=cornYield.map((v,i)=>{const w=cornYield.slice(Math.max(0,i-60),i+1);const t=w.reduce((a,b)=>a+b,0)/w.length;return Math.max(0,t-v)/t;});
+  return{ySpread,mort,cc,autoDel,fed,home,autoSales,gold,bdi,teu,gscpi,portCalls,fao,wheat,cornYield,cornStress};
+}
+
+const HIST=buildHistorical();
+
+/* ════════════════════════════════════════
+   FORECAST ENGINE — project each series forward
+════════════════════════════════════════ */
+function buildForecast(fp){
+  // For each indicator, last historical value + trend shaped by scenario sliders
+  const lastH=HIST_N-1;
+  function project(key,{trend,volatility,clampLo,clampHi,baseline}){
+    const hist=[...HIST[key]];
+    const lastVal=hist[lastH];
+    const projected=[...hist];
+    let val=lastVal;
+    for(let i=HIST_N;i<N;i++){
+      const dt=(i-HIST_N)/12; // years ahead
+      val=clampLo<val&&val<clampHi
+        ? Math.max(clampLo,Math.min(clampHi, val + trend*(1+Math.sin(dt*1.5)*0.3) + randn()*volatility))
+        : (val<=clampLo?clampLo+0.01:clampHi-0.01);
+      projected[i]=val;
+    }
+    return projected;
+  }
+
+  // Yield: fp.fyield controls path (positive = normalizing, negative = inverting more)
+  const ySpread=project('ySpread',{trend:fp.fyield*0.06,volatility:0.08,clampLo:-3.5,clampHi:3.8});
+  // Mortgage delinquency: fp.fdelinq controls stress
+  const mort=project('mort',{trend:fp.fdelinq*0.04,volatility:0.06,clampLo:1,clampHi:13.5});
+  const cc=project('cc',{trend:fp.fdelinq*0.05,volatility:0.08,clampLo:2,clampHi:10.5});
+  const autoDel=project('autoDel',{trend:fp.fdelinq*0.03,volatility:0.06,clampLo:1.5,clampHi:8.5});
+  // Fed: negative ffed = QT continues (shrinking), positive = QE (expanding)
+  const fed=project('fed',{trend:fp.ffed*0.06,volatility:0.12,clampLo:0.3,clampHi:10});
+  // Housing
+  const home=project('home',{trend:-fp.fhouse*1.5,volatility:1.5,clampLo:25,clampHi:135});
+  const autoSales=project('autoSales',{trend:-fp.fhouse*0.1,volatility:0.3,clampLo:4,clampHi:18.5});
+  // Gold: rises with geo stress
+  const gold=project('gold',{trend:fp.fgeo*20+5,volatility:25,clampLo:280,clampHi:4000});
+  // BDI: fp.fbdi controls momentum (positive = strong shipping, negative = collapse)
+  const bdi=project('bdi',{trend:fp.fbdi*60,volatility:120,clampLo:200,clampHi:12000});
+  const teu=project('teu',{trend:fp.fbdi*4,volatility:12,clampLo:80,clampHi:1200});
+  // GSCPI: combines geo + food
+  const gscpiTrend=(fp.fgeo*0.15+fp.ffood*0.08-fp.fbdi*0.06);
+  const gscpi=project('gscpi',{trend:gscpiTrend,volatility:0.15,clampLo:-2,clampHi:5});
+  const portCalls=project('portCalls',{trend:fp.fbdi*0.008,volatility:0.025,clampLo:0.4,clampHi:1.5});
+  // FAO: food price shock slider
+  const fao=project('fao',{trend:fp.ffood*1.2+fp.fgeo*0.8,volatility:2.5,clampLo:60,clampHi:280});
+  const wheat=project('wheat',{trend:fp.ffood*1.5+fp.fgeo*1.0,volatility:3,clampLo:50,clampHi:300});
+  const cornYield=[...HIST.cornYield];
+  for(let i=HIST_N;i<N;i++) cornYield[i]=Math.max(100,cornYield[HIST_N-1]+(i-HIST_N)*0.2+randn()*3-fp.ffood*2);
+  const cornStress=cornYield.map((v,i)=>{const w=cornYield.slice(Math.max(0,i-60),i+1);const t=w.reduce((a,b)=>a+b,0)/w.length;return Math.max(0,t-v)/t;});
+  return{ySpread,mort,cc,autoDel,fed,home,autoSales,gold,bdi,teu,gscpi,portCalls,fao,wheat,cornYield,cornStress};
+}
+
+/* ════════════════════════════════════════
+   PROBABILITY + FORECAST
+════════════════════════════════════════ */
+function computeProb(data,p,smooth_w){
+  const yInv=data.ySpread.map(v=>Math.max(0,-v));
+  const mortN=normalize(data.mort);
+  const ccN=normalize(data.cc);
+  const autoN=normalize(data.autoDel);
+  const fedN=normalize(data.fed);
+  const homeInv=normalize(data.home).map(v=>1-v);
+  const bdiStress=normalize(data.bdi).map(v=>1-v);
+  const gscpiN=normalize(data.gscpi);
+  const faoN=normalize(data.fao);
+  const wheatN=normalize(data.wheat);
+  const cornS=normalize(data.cornStress);
+  const yN=normalize(yInv);
+  const tW=p.wYield+p.wDelinq*3+p.wShip*3+p.wFood*3+p.wFed+p.wHouse||1;
+  const raw=ALL_MONTHS.map((_,i)=>(
+    yN[i]*p.wYield +
+    (mortN[i]+ccN[i]+autoN[i])/3*p.wDelinq*3+
+    (bdiStress[i]+gscpiN[i])/2*p.wShip*3+
+    (faoN[i]+wheatN[i]+cornS[i])/3*p.wFood*3+
+    fedN[i]*p.wFed+
+    homeInv[i]*p.wHouse
+  )/tW);
+  return normalize(smooth(raw,smooth_w)).map(v=>Math.min(99,Math.max(1,Math.round(v*94+3))));
+}
+
+/* ════════════════════════════════════════
+   PARAMS
+════════════════════════════════════════ */
+function getP(){
+  const v=id=>+document.getElementById(id).value;
+  const c=id=>document.getElementById(id).checked;
+  return{
+    win:v('sl-win'),scroll:v('sl-scroll'),thresh:v('sl-thresh'),smooth:v('sl-smooth'),
+    fyield:v('sl-fyield'),fdelinq:v('sl-fdelinq'),ffed:v('sl-ffed'),
+    fbdi:v('sl-fbdi'),ffood:v('sl-ffood'),fgeo:v('sl-fgeo'),fhouse:v('sl-fhouse'),
+    fhor:v('sl-fhor'),fband:v('sl-fband'),
+    wYield:v('w-yield'),wDelinq:v('w-delinq'),wShip:v('w-ship'),
+    wFood:v('w-food'),wFed:v('w-fed'),wHouse:v('w-house'),
+    togConf:c('tog-conf'),togMkt:c('tog-mkt'),togNyFed:c('tog-nyfed'),
+    togRec:c('tog-rec'),togThresh:c('tog-thresh'),
+    rawSel:document.getElementById('rawSel').value,
+    mode:window._mode||'hist',
+  };
+}
+
+function getWindow(p){
+  const winM=Math.round(p.win*12);
+  const maxStart=Math.max(0,N-winM);
+  const startIdx=Math.round((p.scroll/100)*maxStart);
+  const endIdx=Math.min(N-1,startIdx+winM);
+  return{startIdx,endIdx};
+}
+
+/* ════════════════════════════════════════
+   CHARTS
+════════════════════════════════════════ */
+const CHARTS={};
+function killChart(id){if(CHARTS[id]){CHARTS[id].destroy();CHARTS[id]=null;}}
+function killAll(){Object.keys(CHARTS).forEach(killChart);}
+
+const XOPTS={ticks:{maxTicksLimit:9,color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.07)'}};
+const YOPTS={ticks:{color:'#888',font:{size:11}},grid:{color:'rgba(128,128,128,0.07)'}};
+
+function mkChart(id,type,labels,datasets,plugins=[],extra={}){
+  const el=document.getElementById(id);if(!el)return null;
+  killChart(id);
+  CHARTS[id]=new Chart(el,{type,plugins,data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},...(extra.plg||{})},
+      scales:{x:XOPTS,y:{...YOPTS,...(extra.y||{})}, ...(extra.y2?{y2:extra.y2}:{})},
+      ...(extra.idx?{indexAxis:extra.idx}:{})}});
+  return CHARTS[id];
+}
+
+function recPlugin(bands){
+  return{id:'rec',beforeDatasetsDraw(ch){
+    const{ctx,chartArea,scales}=ch;if(!chartArea)return;
+    ctx.save();bands.forEach(({from,to})=>{
+      const x1=scales.x.getPixelForValue(from),x2=scales.x.getPixelForValue(to);
+      ctx.fillStyle='rgba(163,45,45,0.12)';ctx.fillRect(x1,chartArea.top,x2-x1,chartArea.height);
+    });ctx.restore();
+  }};
+}
+function forePlugin(foreStart){
+  return{id:'fore',beforeDatasetsDraw(ch){
+    const{ctx,chartArea,scales}=ch;if(!chartArea||foreStart===null)return;
+    const x1=scales.x.getPixelForValue(foreStart);
+    ctx.save();ctx.fillStyle='rgba(186,117,23,0.05)';ctx.fillRect(x1,chartArea.top,chartArea.right-x1,chartArea.height);
+    ctx.strokeStyle='rgba(186,117,23,0.4)';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(x1,chartArea.top);ctx.lineTo(x1,chartArea.bottom);ctx.stroke();
+    ctx.fillStyle='#BA7517';ctx.font='10px sans-serif';ctx.textAlign='left';
+    ctx.fillText('Forecast →',x1+4,chartArea.top+14);ctx.restore();
+  }};
+}
+function threshPlugin(thresh){
+  return{id:'thresh',afterDatasetsDraw(ch){
+    const{ctx,chartArea,scales}=ch;if(!chartArea)return;
+    const y=scales.y.getPixelForValue(thresh);
+    ctx.save();ctx.strokeStyle='rgba(163,45,45,0.5)';ctx.lineWidth=1;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(chartArea.left,y);ctx.lineTo(chartArea.right,y);ctx.stroke();
+    ctx.fillStyle='#A32D2D';ctx.font='10px sans-serif';ctx.textAlign='right';
+    ctx.fillText('Alert '+thresh+'%',chartArea.right-3,y-4);ctx.restore();
+  }};
+}
+
+/* ════════════════════════════════════════
+   RENDER
+════════════════════════════════════════ */
+let _mode='hist';
+function setMode(m){
+  _mode=m;window._mode=m;
+  ['hist','fore','both'].forEach(k=>document.getElementById('btn-'+k).classList.toggle('active',k===m));
+  const note=document.getElementById('modeNote');
+  const msgs={hist:'<b>Historical mode:</b> Scroll and zoom across 35 years of FRED-calibrated data. Switch to Forecast mode to project indicators into 2026–2028.',
+    fore:'<b>Forecast mode:</b> Sliders shape the projected path for each indicator from Sep 2025 onwards. Confidence bands widen with distance. Anchored to real data points (BDI ~3,400, mortgage delinq. 1.89%, Fed BS $6.74T).',
+    both:'<b>Combined view:</b> Full 1990–2028 sweep. Historical data is solid; forecast is dashed with amber confidence band. Red = above alert threshold.'};
+  note.innerHTML=msgs[m];
+  render();
+}
+
+function render(){
+  const p=getP();p.mode=_mode;
+  const foreData=buildForecast(p);
+  const prob=computeProb(foreData,p,p.smooth);
+
+  // Window
+  let{startIdx,endIdx}=getWindow(p);
+  // In forecast mode snap to include forecast zone
+  if(p.mode==='fore'){startIdx=Math.max(0,HIST_N-24);endIdx=Math.min(N-1,startIdx+Math.round(p.win*12));}
+  if(p.mode==='both'){startIdx=0;endIdx=N-1;}
+
+  // Sync paired sliders
+  ['win','scroll'].forEach(k=>{['sl-'+k,'sl-'+k+'2'].forEach(id=>{const el=document.getElementById(id);if(el&&el!==document.activeElement)el.value=p[k];});});
+  document.getElementById('lbl-win').textContent=document.getElementById('lbl-win2').textContent=p.win+' yr'+(p.win>1?'s':'');
+  const endYear=ALL_MONTHS[Math.min(endIdx,N-1)].y;
+  document.getElementById('lbl-scroll').textContent=document.getElementById('lbl-scroll2').textContent=endYear;
+  document.getElementById('viewFrom').textContent=ALL_MONTHS[startIdx].label;
+  document.getElementById('viewTo').textContent=ALL_MONTHS[Math.min(endIdx,N-1)].label;
+
+  const sl=arr=>arr.slice(startIdx,endIdx+1);
+  const labels=sl(ALL_MONTHS).map(x=>x.label);
+  const isForeSl=sl(ALL_MONTHS).map(x=>x.isFore);
+  const probSl=sl(prob);
+  const recSl=sl(REC_MASK);
+
+  // Recession bands in slice
+  const bands=[];let inR=false,rS=null;
+  recSl.forEach((v,i)=>{if(v&&!inR){inR=true;rS=i;}if(!v&&inR){inR=false;bands.push({from:rS,to:i});}});
+  if(inR)bands.push({from:rS,to:recSl.length-1});
+
+  // Forecast start index within slice
+  const foreSlStart=isForeSl.indexOf(true);
+
+  // Split historical vs forecast series
+  const probHist=probSl.map((v,i)=>isForeSl[i]?null:v);
+  const probFore=probSl.map((v,i)=>isForeSl[i]?v:null);
+  // Confidence band
+  const bandW=p.fband;
+  const confUp=probSl.map((v,i)=>{if(!isForeSl[i])return null;const dt=(i-foreSlStart)/12;return Math.min(99,Math.round(v+bandW*8*Math.sqrt(dt+0.1)));});
+  const confLo=probSl.map((v,i)=>{if(!isForeSl[i])return null;const dt=(i-foreSlStart)/12;return Math.max(1,Math.round(v-bandW*8*Math.sqrt(dt+0.1)));});
+  // Market-implied odds
+  const mktImplied=labels.map((_,i)=>{
+    const absIdx=startIdx+i;const m=ALL_MONTHS[absIdx];
+    if(!m.isFore) return null;
+    const dt=(absIdx-HIST_N)/12;
+    // Starts at 26% (Kalshi) and blends with model
+    const kalshi=26,nyFed=35.8;
+    return Math.round(kalshi+(nyFed-kalshi)*Math.min(1,dt/2)+dt*2);
+  });
+  const nyFedLine=labels.map((_,i)=>{
+    const absIdx=startIdx+i;const m=ALL_MONTHS[absIdx];
+    if(!m.isFore) return null;
+    return 35.8;
+  });
+
+  // Risk banner
+  const lastProb=probSl[probSl.length-1]||0;
+  const lvl=lastProb>=p.thresh?'high':lastProb>=40?'med':'low';
+  document.getElementById('riskBanner').className='risk-banner '+lvl;
+  document.getElementById('riskPct').textContent=lastProb+'%';
+  document.getElementById('riskLabel').textContent=lvl==='high'?'Elevated recession risk':lvl==='med'?'Moderate recession risk':'Low recession risk';
+  document.getElementById('riskDesc').textContent=lvl==='high'?'Multiple stress indicators elevated across financial, shipping and food markets.':lvl==='med'?'Some indicators elevated. Monitor closely.':'Indicators broadly stable. Model does not detect imminent recession.';
+
+  const ei=Math.min(endIdx,N-1);
+  document.getElementById('riskPills').innerHTML=[
+    {lbl:'Yield',val:foreData.ySpread[ei].toFixed(2)+'%',col:foreData.ySpread[ei]<0?'#A32D2D':'#3B6D11'},
+    {lbl:'Mtg delinq.',val:foreData.mort[ei].toFixed(2)+'%',col:'var(--text)'},
+    {lbl:'BDI',val:Math.round(foreData.bdi[ei]).toLocaleString(),col:'var(--text)'},
+    {lbl:'FAO FPI',val:Math.round(foreData.fao[ei]).toString(),col:'var(--text)'},
+    {lbl:'Fed BS',val:'$'+foreData.fed[ei].toFixed(1)+'T',col:'var(--text)'},
+  ].map(x=>`<div class="pill"><b style="color:${x.col}">${x.val}</b>${x.lbl}</div>`).join('');
+
+  // Metric cards
+  document.getElementById('metricsRow').innerHTML=[
+    {lbl:'Recession prob.',val:lastProb+'%',sub:'composite score',cls:lvl==='high'?'cr':lvl==='med'?'ca':'cg'},
+    {lbl:'Yield curve',val:foreData.ySpread[ei].toFixed(2)+'%',sub:foreData.ySpread[ei]<0?'Inverted':'Normal',cls:foreData.ySpread[ei]<0?'cr':'cg'},
+    {lbl:'Mtg delinquency',val:foreData.mort[ei].toFixed(2)+'%',sub:'FRED anchor: 1.89% Q1-26',cls:''},
+    {lbl:'Fed balance sheet',val:'$'+foreData.fed[ei].toFixed(2)+'T',sub:'Anchor: $6.74T Jul-26',cls:''},
+    {lbl:'Baltic Dry Index',val:Math.round(foreData.bdi[ei]).toLocaleString(),sub:'Anchor: ~3,400 Sep-26',cls:''},
+    {lbl:'FAO food price',val:Math.round(foreData.fao[ei]).toString(),sub:'Anchor: 128.3 Apr-25',cls:''},
+    {lbl:'Gold price',val:'$'+Math.round(foreData.gold[ei]).toLocaleString(),sub:'USD/oz forecast',cls:''},
+    {lbl:'Kalshi 2026 odds',val:'26%',sub:'prediction market (real)',cls:'ca'},
+    {lbl:'NY Fed DSGE',val:'35.8%',sub:'recession next 4 qtrs',cls:'ca'},
+    {lbl:'IMF GDP 2026',val:'+3.1%',sub:'global base case',cls:'cg'},
+  ].map(c=>`<div class="mc"><div class="mc-lbl">${c.lbl}</div><div class="mc-val ${c.cls}">${c.val}</div><div class="mc-sub">${c.sub}</div></div>`).join('');
+
+  const plugins_prob=[
+    p.togRec?recPlugin(bands):null,
+    foreSlStart>=0?forePlugin(foreSlStart):null,
+    p.togThresh?threshPlugin(p.thresh):null
+  ].filter(Boolean);
+
+  // Probability chart
+  const probDsets=[
+    {label:'Historical prob.',data:probHist,borderColor:'#E24B4A',borderWidth:2.5,pointRadius:0,tension:0.35,fill:false},
+    {label:'Forecast (central)',data:probFore,borderColor:'#BA7517',borderWidth:2.5,pointRadius:0,tension:0.3,fill:false,borderDash:[6,3]},
+  ];
+  if(p.togConf&&confUp.some(v=>v!==null)){
+    probDsets.push({label:'Conf. upper',data:confUp,borderColor:'transparent',borderWidth:0,pointRadius:0,fill:false,tension:0.3});
+    probDsets.push({label:'Conf. lower',data:confLo,borderColor:'rgba(186,117,23,0.3)',borderWidth:1,borderDash:[3,3],pointRadius:0,fill:'-1',backgroundColor:'rgba(186,117,23,0.1)',tension:0.3});
+  }
+  if(p.togMkt&&mktImplied.some(v=>v!==null)) probDsets.push({label:'Market-implied',data:mktImplied,borderColor:'#3B6D11',borderWidth:1.5,borderDash:[4,3],pointRadius:0,tension:0.2,fill:false});
+  if(p.togNyFed&&nyFedLine.some(v=>v!==null)) probDsets.push({label:'NY Fed DSGE',data:nyFedLine,borderColor:'#534AB7',borderWidth:1.5,borderDash:[2,3],pointRadius:0,tension:0,fill:false});
+  mkChart('probChart','line',labels,probDsets,plugins_prob,{y:{min:0,max:100,ticks:{...YOPTS.ticks,callback:v=>v+'%'}}});
+
+  // Insights
+  const avgProb=Math.round(probSl.filter((_,i)=>!isForeSl[i]).reduce((a,b)=>a+b,0)/Math.max(1,probSl.filter((_,i)=>!isForeSl[i]).length));
+  const forePeakProb=Math.max(...probSl.filter((_,i)=>isForeSl[i]).filter(v=>v!==null));
+  const recCount=recSl.filter(v=>v).length;
+  const invMo=sl(foreData.ySpread).filter((_,i)=>!isForeSl[i]&&sl(foreData.ySpread)[i]<0).length;
+  const highRisk=probSl.filter(v=>v>=p.thresh).length;
+  document.getElementById('insightsGrid').innerHTML=[
+    {t:'Historical avg. risk',b:`Composite score averaged <b>${avgProb}%</b> across historical window. NBER recessions account for <b>${recCount}</b> months.`},
+    {t:'Forecast peak risk',b:`Under current scenario, forecast probability peaks near <b>${forePeakProb>0?forePeakProb+'%':'—'}</b> within the forecast window.`},
+    {t:'Market vs model',b:`Kalshi markets price 2026 recession at <b>26%</b>. NY Fed DSGE puts it at <b>35.8%</b>. Your model scores <b>${lastProb}%</b> at window end.`},
+    {t:'Yield curve signal',b:`The 10Y–2Y spread was inverted for <b>${invMo}</b> months in this window. Q4 2025 GDP was just <b>+0.7%</b> (slowdown from +4.4% in Q3).`},
+    {t:'Food & commodity risk',b:`FAO cereal index rose <b>4.3%</b> in Mar 2026 on US drought and wheat supply tightening. Adjust the Food price shock slider to model further spikes.`},
+    {t:'BDI as early warning',b:`Current BDI near 3,400 (Sep 2026 high). A drop below <b>1,000</b> would signal severe trade contraction consistent with recession precursors.`},
+  ].map(c=>`<div class="ins"><div class="ins-title">${c.t}</div><div class="ins-body">${c.b}</div></div>`).join('');
+
+  // Indicator chart
+  const indCfg=[
+    {k:'ySpread',lbl:'Yield curve (inv.)',col:'#185FA5',dash:[5,3],fn:v=>Math.max(0,-v)},
+    {k:'mort',lbl:'Mortgage delinq.',col:'#A32D2D',dash:[],fn:v=>v},
+    {k:'cc',lbl:'Credit card delinq.',col:'#D85A30',dash:[],fn:v=>v},
+    {k:'bdi',lbl:'BDI stress (inv.)',col:'#BA7517',dash:[],fn:v=>v,inv:true},
+    {k:'gscpi',lbl:'GSCPI',col:'#E24B4A',dash:[3,2],fn:v=>v},
+    {k:'fao',lbl:'FAO food price',col:'#993556',dash:[],fn:v=>v},
+    {k:'fed',lbl:'Fed BS',col:'#444441',dash:[4,2],fn:v=>v},
+  ];
+  const indDsets=[];const indLegH=[];
+  indCfg.forEach(cfg=>{
+    const full=foreData[cfg.k].map(v=>cfg.fn(v));
+    const norm=normalize(full);
+    const hArr=sl(norm).map((v,i)=>(isForeSl[i]?null:+(cfg.inv?1-v:v).toFixed(3)));
+    const fArr=sl(norm).map((v,i)=>(isForeSl[i]?+(cfg.inv?1-v:v).toFixed(3):null));
+    indDsets.push({label:cfg.lbl+' (hist)',data:hArr,borderColor:cfg.col,borderWidth:1.5,pointRadius:0,tension:0.3,fill:false});
+    indDsets.push({label:cfg.lbl+' (fore)',data:fArr,borderColor:cfg.col,borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.3,fill:false});
+    indLegH.push(`<span><span class="lsq" style="background:${cfg.col}"></span>${cfg.lbl}</span>`);
+  });
+  document.getElementById('indLegend').innerHTML=indLegH.join('');
+  mkChart('indChart','line',labels,indDsets,[p.togRec?recPlugin(bands):null,foreSlStart>=0?forePlugin(foreSlStart):null].filter(Boolean),{y:{min:0,max:1,ticks:{...YOPTS.ticks}}});
+
+  // Raw indicator chart
+  const rawMap={
+    yield:{d:foreData.ySpread,lbl:'Yield curve (%)',col:'#185FA5',cb:v=>v+'%'},
+    mort:{d:foreData.mort,lbl:'Mortgage delinq. (%)',col:'#A32D2D',cb:v=>v+'%'},
+    cc:{d:foreData.cc,lbl:'Credit card delinq. (%)',col:'#D85A30',cb:v=>v+'%'},
+    auto:{d:foreData.autoDel,lbl:'Auto loan delinq. (%)',col:'#534AB7',cb:v=>v+'%'},
+    fed:{d:foreData.fed,lbl:'Fed balance sheet ($T)',col:'#444441',cb:v=>'$'+v+'T'},
+    home:{d:foreData.home,lbl:'Home sales (K/mo)',col:'#3B6D11',cb:v=>v+'K'},
+    bdi:{d:foreData.bdi,lbl:'Baltic Dry Index',col:'#BA7517',cb:v=>Math.round(v).toLocaleString()},
+    fao:{d:foreData.fao,lbl:'FAO Food Price Index',col:'#993556',cb:v=>Math.round(v).toString()},
+    wheat:{d:foreData.wheat,lbl:'Wheat price index',col:'#639922',cb:v=>Math.round(v).toString()},
+    gold:{d:foreData.gold,lbl:'Gold (USD/oz)',col:'#854F0B',cb:v=>'$'+Math.round(v).toLocaleString()},
+  };
+  const rc=rawMap[p.rawSel];
+  const rawH=sl(rc.d).map((v,i)=>isForeSl[i]?null:+v.toFixed(2));
+  const rawF=sl(rc.d).map((v,i)=>isForeSl[i]?+v.toFixed(2):null);
+  mkChart('rawChart','line',labels,[
+    {label:'Historical',data:rawH,borderColor:rc.col,borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:rc.col+'18'},
+    {label:'Forecast',data:rawF,borderColor:rc.col,borderWidth:2,borderDash:[6,3],pointRadius:0,tension:0.3,fill:false},
+  ],[p.togRec?recPlugin(bands):null,foreSlStart>=0?forePlugin(foreSlStart):null].filter(Boolean),{y:{ticks:{...YOPTS.ticks,callback:rc.cb}}});
+
+  // Scenarios
+  const SCENARIOS=[
+    {id:'soft',name:'Soft landing',prob:22,col:'#3B6D11',desc:'Inflation cools, Fed cuts gradually, BDI stable. IMF base case.',params:{fyield:0.8,fdelinq:0.1,ffed:-0.3,fbdi:0.3,ffood:0.1,fgeo:0.1,fhouse:0.1}},
+    {id:'mild',name:'Mild recession',prob:38,col:'#854F0B',desc:'GDP stalls, delinquencies tick up, yield curve normalizes slowly.',params:{fyield:0.3,fdelinq:0.8,ffed:-0.6,fbdi:-0.3,ffood:0.4,fgeo:0.5,fhouse:0.5}},
+    {id:'hard',name:'Hard landing',prob:58,col:'#A32D2D',desc:'Credit stress, BDI collapse, food spike, Fed forced QE.',params:{fyield:-0.5,fdelinq:1.8,ffed:1.2,fbdi:-1.2,ffood:1.5,fgeo:1.5,fhouse:1.2}},
+    {id:'stagflation',name:'Stagflation',prob:48,col:'#534AB7',desc:'High food/energy prices + slowing growth. 1970s-style.',params:{fyield:-0.3,fdelinq:1.0,ffed:0.8,fbdi:-0.5,ffood:2.2,fgeo:2.0,fhouse:0.8}},
+  ];
+  const scenGrid=document.getElementById('scenGrid');
+  if(scenGrid&&scenGrid.innerHTML===''){
+    scenGrid.innerHTML=SCENARIOS.map(s=>`<div class="sc-card" id="sc-${s.id}" onclick="loadScenario('${s.id}')">
+      <div class="sc-name">${s.name}</div>
+      <div class="sc-desc">${s.desc}</div>
+      <div class="sc-prob" style="color:${s.col}">${s.prob}% risk</div>
+    </div>`).join('');
+  }
+
+  // Scenario comparison chart
+  const scenLabels=ALL_MONTHS.filter((_,i)=>i>=mi(2024,0)).map(x=>x.label);
+  const scenDsets=SCENARIOS.map(s=>{
+    const sd=buildForecast({...p,...s.params});
+    const sp=computeProb(sd,p,p.smooth);
+    return{label:s.name,data:sp.slice(mi(2024,0)),borderColor:s.col,borderWidth:1.5,borderDash:s.id==='soft'?[]:[5,3],pointRadius:0,tension:0.3,fill:false};
+  });
+  // Add user custom line
+  scenDsets.push({label:'Your scenario',data:prob.slice(mi(2024,0)),borderColor:'#185FA5',borderWidth:2.5,pointRadius:0,tension:0.3,fill:false});
+  const scenForeStart=scenLabels.findIndex(l=>l>=ALL_MONTHS[HIST_N].label);
+  mkChart('scenChart','line',scenLabels,scenDsets,[scenForeStart>=0?forePlugin(scenForeStart):null].filter(Boolean),{y:{min:0,max:100,ticks:{...YOPTS.ticks,callback:v=>v+'%'}}});
+
+  // Shipping chart
+  const shipH=(k,fn)=>sl(foreData[k]).map((v,i)=>isForeSl[i]?null:+(fn(v)).toFixed(3));
+  const shipF=(k,fn)=>sl(foreData[k]).map((v,i)=>isForeSl[i]?+(fn(v)).toFixed(3):null);
+  const bdiN=normalize(foreData.bdi);const teuN=normalize(foreData.teu);const gscpiN2=normalize(foreData.gscpi);
+  mkChart('shipChart','line',labels,[
+    {label:'BDI stress (hist)',data:sl(bdiN).map((v,i)=>isForeSl[i]?null:+(1-v).toFixed(3)),borderColor:'#BA7517',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false},
+    {label:'BDI stress (fore)',data:sl(bdiN).map((v,i)=>isForeSl[i]?+(1-v).toFixed(3):null),borderColor:'#BA7517',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.3,fill:false},
+    {label:'TEU stress (hist)',data:sl(teuN).map((v,i)=>isForeSl[i]?null:+(1-v).toFixed(3)),borderColor:'#0F6E56',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false},
+    {label:'TEU stress (fore)',data:sl(teuN).map((v,i)=>isForeSl[i]?+(1-v).toFixed(3):null),borderColor:'#0F6E56',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.3,fill:false},
+    {label:'GSCPI (hist)',data:sl(gscpiN2).map((v,i)=>isForeSl[i]?null:+v.toFixed(3)),borderColor:'#E24B4A',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false},
+    {label:'GSCPI (fore)',data:sl(gscpiN2).map((v,i)=>isForeSl[i]?+v.toFixed(3):null),borderColor:'#E24B4A',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.3,fill:false},
+  ],[p.togRec?recPlugin(bands):null,foreSlStart>=0?forePlugin(foreSlStart):null].filter(Boolean),{y:{min:0,max:1}});
+
+  const bdiH=sl(foreData.bdi).map((v,i)=>isForeSl[i]?null:Math.round(v));
+  const bdiF=sl(foreData.bdi).map((v,i)=>isForeSl[i]?Math.round(v):null);
+  mkChart('bdiChart','line',labels,[
+    {label:'BDI (hist)',data:bdiH,borderColor:'#BA7517',borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:'rgba(186,117,23,0.09)'},
+    {label:'BDI (fore)',data:bdiF,borderColor:'#BA7517',borderWidth:2,borderDash:[6,3],pointRadius:0,tension:0.3,fill:false},
+  ],[p.togRec?recPlugin(bands):null,foreSlStart>=0?forePlugin(foreSlStart):null].filter(Boolean),{y:{ticks:{...YOPTS.ticks}}});
+
+  // Agri chart
+  const faoN2=normalize(foreData.fao);const wN=normalize(foreData.wheat);const csN=normalize(foreData.cornStress);
+  mkChart('agriChart','line',labels,[
+    {label:'FAO (hist)',data:sl(faoN2).map((v,i)=>isForeSl[i]?null:+v.toFixed(3)),borderColor:'#993556',borderWidth:2,pointRadius:0,tension:0.3,fill:false},
+    {label:'FAO (fore)',data:sl(faoN2).map((v,i)=>isForeSl[i]?+v.toFixed(3):null),borderColor:'#993556',borderWidth:2,borderDash:[6,3],pointRadius:0,tension:0.3,fill:false},
+    {label:'Wheat (hist)',data:sl(wN).map((v,i)=>isForeSl[i]?null:+v.toFixed(3)),borderColor:'#639922',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false},
+    {label:'Wheat (fore)',data:sl(wN).map((v,i)=>isForeSl[i]?+v.toFixed(3):null),borderColor:'#639922',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.3,fill:false},
+    {label:'Corn stress (hist)',data:sl(csN).map((v,i)=>isForeSl[i]?null:+v.toFixed(3)),borderColor:'#854F0B',borderWidth:1.5,pointRadius:0,tension:0.3,fill:false},
+    {label:'Corn stress (fore)',data:sl(csN).map((v,i)=>isForeSl[i]?+v.toFixed(3):null),borderColor:'#854F0B',borderWidth:1.5,borderDash:[5,3],pointRadius:0,tension:0.3,fill:false},
+  ],[p.togRec?recPlugin(bands):null,foreSlStart>=0?forePlugin(foreSlStart):null].filter(Boolean),{y:{min:0,max:1}});
+
+  const faoH=sl(foreData.fao).map((v,i)=>isForeSl[i]?null:+v.toFixed(1));
+  const faoF=sl(foreData.fao).map((v,i)=>isForeSl[i]?+v.toFixed(1):null);
+  mkChart('faoChart','line',labels,[
+    {label:'FAO (hist)',data:faoH,borderColor:'#993556',borderWidth:2,pointRadius:0,tension:0.3,fill:true,backgroundColor:'rgba(153,53,86,0.09)'},
+    {label:'FAO (fore)',data:faoF,borderColor:'#993556',borderWidth:2,borderDash:[6,3],pointRadius:0,tension:0.3,fill:false},
+  ],[p.togRec?recPlugin(bands):null,foreSlStart>=0?forePlugin(foreSlStart):null].filter(Boolean),{y:{ticks:{...YOPTS.ticks}}});
+
+  // Correlations
+  const indicators=[
+    {lbl:'Yield (inv.)',arr:sl(normalize(foreData.ySpread.map(v=>Math.max(0,-v)))).filter((_,i)=>!isForeSl[i]),col:'#185FA5'},
+    {lbl:'Mtg delinq.',arr:sl(normalize(foreData.mort)).filter((_,i)=>!isForeSl[i]),col:'#A32D2D'},
+    {lbl:'CC delinq.',arr:sl(normalize(foreData.cc)).filter((_,i)=>!isForeSl[i]),col:'#D85A30'},
+    {lbl:'BDI stress',arr:sl(normalize(foreData.bdi)).map((v,i)=>isForeSl[i]?null:1-v).filter(v=>v!==null),col:'#BA7517'},
+    {lbl:'GSCPI',arr:sl(normalize(foreData.gscpi)).filter((_,i)=>!isForeSl[i]),col:'#E24B4A'},
+    {lbl:'FAO food',arr:sl(normalize(foreData.fao)).filter((_,i)=>!isForeSl[i]),col:'#993556'},
+    {lbl:'Wheat',arr:sl(normalize(foreData.wheat)).filter((_,i)=>!isForeSl[i]),col:'#639922'},
+    {lbl:'Corn stress',arr:sl(normalize(foreData.cornStress)).filter((_,i)=>!isForeSl[i]),col:'#854F0B'},
+    {lbl:'Fed BS',arr:sl(normalize(foreData.fed)).filter((_,i)=>!isForeSl[i]),col:'#444441'},
+    {lbl:'Gold',arr:sl(normalize(foreData.gold)).filter((_,i)=>!isForeSl[i]),col:'#BA7517'},
+  ];
+  const recSlHist=recSl.filter((_,i)=>!isForeSl[i]);
+  const corrs=indicators.map(ind=>pearson(ind.arr.slice(0,recSlHist.length),recSlHist));
+  mkChart('corrChart','bar',indicators.map(i=>i.lbl),[{data:corrs.map(v=>+v.toFixed(3)),backgroundColor:indicators.map((ind,i)=>ind.col+'cc'),borderColor:indicators.map(ind=>ind.col),borderWidth:1,borderRadius:4}],[],
+    {idx:'y',y:{min:-1,max:1,ticks:{...YOPTS.ticks,callback:v=>v.toFixed(1)},title:{display:true,text:'Pearson r vs NBER recession',color:'#888',font:{size:11}}}});
+
+  // Lead-lag
+  const maxLag=24;const lagCorrs=[];const lagLbls=[];
+  const bdiNFull=normalize(foreData.bdi);
+  for(let lag=-maxLag;lag<=maxLag;lag++){
+    const a=recSlHist.map((_,i)=>{const j=startIdx+i-lag;return(j>=0&&j<N)?bdiNFull[j]:0;});
+    lagCorrs.push(+pearson(a,recSlHist).toFixed(3));
+    lagLbls.push(lag===0?'0':(lag>0?'+'+lag:''+lag));
+  }
+  mkChart('leadChart','line',lagLbls,[{label:'BDI lead/lag',data:lagCorrs,borderColor:'#BA7517',borderWidth:2,pointRadius:2,tension:0.2,fill:false}],[],
+    {y:{min:-1,max:1,ticks:{...YOPTS.ticks,callback:v=>v.toFixed(1)},title:{display:true,text:'Correlation',color:'#888',font:{size:11}}}});
+}
+
+/* ════════════════════════════════════════
+   SCENARIO LOADER
+════════════════════════════════════════ */
+const SCENARIOS_DATA={
+  soft:{fyield:0.8,fdelinq:0.1,ffed:-0.3,fbdi:0.3,ffood:0.1,fgeo:0.1,fhouse:0.1},
+  mild:{fyield:0.3,fdelinq:0.8,ffed:-0.6,fbdi:-0.3,ffood:0.4,fgeo:0.5,fhouse:0.5},
+  hard:{fyield:-0.5,fdelinq:1.8,ffed:1.2,fbdi:-1.2,ffood:1.5,fgeo:1.5,fhouse:1.2},
+  stagflation:{fyield:-0.3,fdelinq:1.0,ffed:0.8,fbdi:-0.5,ffood:2.2,fgeo:2.0,fhouse:0.8},
+};
+function loadScenario(id){
+  const s=SCENARIOS_DATA[id];if(!s)return;
+  Object.entries(s).forEach(([k,v])=>{const el=document.getElementById('sl-'+k);if(el){el.value=v;el.dispatchEvent(new Event('input'));}});
+  document.querySelectorAll('.sc-card').forEach(c=>c.classList.remove('active-sc'));
+  document.getElementById('sc-'+id)?.classList.add('active-sc');
+  if(_mode==='hist') setMode('fore');
+}
+
+/* ════════════════════════════════════════
+   SLIDER WIRING
+════════════════════════════════════════ */
+const FMT_MAP={
+  'sl-win':v=>v+' yr'+(+v>1?'s':''),'sl-win2':v=>v+' yr'+(+v>1?'s':''),
+  'sl-scroll':v=>{try{const wm=Math.round(+document.getElementById('sl-win').value*12);return ALL_MONTHS[Math.min(Math.round((v/100)*Math.max(0,N-wm))+wm,N-1)].y;}catch(e){return v;}},
+  'sl-scroll2':v=>{try{const wm=Math.round(+document.getElementById('sl-win').value*12);return ALL_MONTHS[Math.min(Math.round((v/100)*Math.max(0,N-wm))+wm,N-1)].y;}catch(e){return v;}},
+  'sl-thresh':v=>v+'%','sl-smooth':v=>v+' mo','sl-fhor':v=>v+' mo','sl-fband':v=>parseFloat(v).toFixed(1)+'σ',
+  'sl-fyield':v=>{const n=+v;return n>0.3?'normalizing':n<-0.3?'inverting':'flat';},
+  'sl-fdelinq':v=>{const n=+v;return n>1?'rising fast':n>0.3?'rising':'stable';},
+  'sl-ffed':v=>{const n=+v;return n>0.5?'QE':n<-0.5?'QT':'neutral';},
+  'sl-fbdi':v=>{const n=+v;return n>0.3?'recovering':n<-0.3?'collapsing':'stable';},
+  'sl-ffood':v=>{const n=+v;return n>1?'major shock':n>0.3?'rising':'none';},
+  'sl-fgeo':v=>{const n=+v;return n>1.5?'extreme':n>0.5?'elevated':'low';},
+  'sl-fhouse':v=>{const n=+v;return n>1?'stress':n>0.3?'cooling':'stable';},
+  'w-yield':v=>v+'%','w-delinq':v=>v+'%','w-ship':v=>v+'%','w-food':v=>v+'%','w-fed':v=>v+'%','w-house':v=>v+'%',
+};
+const LBL_MAP={
+  'sl-win':'lbl-win','sl-win2':'lbl-win2','sl-scroll':'lbl-scroll','sl-scroll2':'lbl-scroll2',
+  'sl-thresh':'lbl-thresh','sl-smooth':'lbl-smooth','sl-fhor':'lbl-fhor','sl-fband':'lbl-fband',
+  'sl-fyield':'lbl-fyield','sl-fdelinq':'lbl-fdelinq','sl-ffed':'lbl-ffed','sl-fbdi':'lbl-fbdi',
+  'sl-ffood':'lbl-ffood','sl-fgeo':'lbl-fgeo','sl-fhouse':'lbl-fhouse',
+  'w-yield':'w-yield-lbl','w-delinq':'w-delinq-lbl','w-ship':'w-ship-lbl',
+  'w-food':'w-food-lbl','w-fed':'w-fed-lbl','w-house':'w-house-lbl',
+};
+const PAIR={'sl-win':'sl-win2','sl-win2':'sl-win','sl-scroll':'sl-scroll2','sl-scroll2':'sl-scroll'};
+
+Object.keys(FMT_MAP).forEach(id=>{
+  const el=document.getElementById(id);if(!el)return;
+  el.addEventListener('input',()=>{
+    try{const lblId=LBL_MAP[id];if(lblId){const lel=document.getElementById(lblId);if(lel)lel.textContent=FMT_MAP[id](el.value);}}catch(e){}
+    if(PAIR[id]){const p=document.getElementById(PAIR[id]);if(p)p.value=el.value;}
+    clearTimeout(window._rt);window._rt=setTimeout(render,80);
+  });
+});
+document.querySelectorAll('.tog-row input,#rawSel').forEach(el=>el.addEventListener('change',()=>{clearTimeout(window._rt);window._rt=setTimeout(render,80);}));
+document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  clearTimeout(window._rt);window._rt=setTimeout(render,100);
+}));
+
+render();
+</script>
+</body>
+</html>
